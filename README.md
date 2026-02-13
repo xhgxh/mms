@@ -202,3 +202,4 @@ The trained model is under mms_slam/train/work_dirs/xxx.pth,
 ## 7 Acknowlegement
 Thanks for [A-LOAM](https://github.com/HKUST-Aerial-Robotics/A-LOAM) and [LOAM](https://github.com/laboshinl/loam_velodyne) and [LOAM_NOTED](https://github.com/cuitaixiang/LOAM_NOTED) and [MMDetection](https://github.com/open-mmlab/mmdetection) and [SOLO](https://github.com/WXinlong/SOLO).
 
+# mms
