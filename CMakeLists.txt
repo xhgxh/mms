@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   sensor_msgs
+  livox_ros_driver
   octomap_msgs
   octomap_ros
   roscpp
@@ -16,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   rosbag
   std_msgs
   tf
+  tf2_ros
   eigen_conversions
   cv_bridge
   image_transport
@@ -55,7 +57,7 @@ link_directories(
 
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs cv_bridge image_transport
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs sensor_msgs livox_ros_driver cv_bridge image_transport tf2_ros
   DEPENDS EIGEN3 PCL Ceres 
   INCLUDE_DIRS include
 )
@@ -66,19 +68,25 @@ install(PROGRAMS
 )
 
 add_executable(mms_slam_laser_processing_node src/laserProcessingNode.cpp src/laserProcessingClass.cpp src/lidar.cpp)
+add_dependencies(mms_slam_laser_processing_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_laser_processing_node ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
 
 add_executable(mms_slam_odom_estimation_node src/odomEstimationNode.cpp src/lidarOptimization.cpp src/lidar.cpp src/odomEstimationClass.cpp)
+add_dependencies(mms_slam_odom_estimation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_odom_estimation_node ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
 
 add_executable(mms_slam_laser_mapping_node src/laserMappingNode.cpp src/laserMappingClass.cpp src/lidar.cpp)
+add_dependencies(mms_slam_laser_mapping_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_laser_mapping_node ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
 
 add_executable(mms_slam_octo_mapping_node src/octoMappingNode.cpp src/octoMappingClass.cpp src/lidar.cpp)
+add_dependencies(mms_slam_octo_mapping_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_octo_mapping_node ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES} ${OCTOMAP_LIBRARIES})
 
 add_executable(mms_slam_image2pc_node src/image2pcNode.cpp)
+add_dependencies(mms_slam_image2pc_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_image2pc_node ${OpenCV_LIBRARIES} ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(mms_slam_image2pc_clustering_node src/image2pcNode_clustering.cpp)
+add_dependencies(mms_slam_image2pc_clustering_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mms_slam_image2pc_clustering_node ${OpenCV_LIBRARIES} ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES})

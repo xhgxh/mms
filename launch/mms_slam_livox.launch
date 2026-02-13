@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="image_transport_1" pkg="image_transport" type="republish" args="compressed in:=/camera/color/image_raw raw out:=/camera/color/image_raw" />
+    <!-- <arg name="camera_config" default="$(find mms_slam)/config/camera_config_mid360_dataset.yaml" />
+    <arg name="lidar_slam_config" default="$(find mms_slam)/config/lidar_slam_config_mid360_dataset.yaml" /> -->
+
+    <!-- <rosparam command="load" file="$(arg camera_config)" />
+    <rosparam command="load" file="$(arg lidar_slam_config)" /> -->
+    <!-- <rosparam command="load" file="$(arg camera_config)" ns="solo_node" /> -->
+    <rosparam command="load" file="$(arg camera_config)" ns="mms_slam_image2pc_node" />
+    <rosparam command="load" file="$(arg lidar_slam_config)" ns="mms_slam_image2pc_node" />
+
+    <!-- solo -->
+    <node pkg="mms_slam" name="solo_node" type="solo_node.py" output="screen">
+        <param name="~root_path" value="$(find mms_slam)/" />
+    </node>
+
+    <!-- image + point cloud fusion -->
+    <node pkg="mms_slam" name="mms_slam_image2pc_node" type="mms_slam_image2pc_node" output="screen">
+    </node>
+
+    <!-- SLAM -->
+    <node pkg="mms_slam" type="mms_slam_laser_processing_node" name="mms_slam_laser_processing_node" output="log"/>
+    <node pkg="mms_slam" type="mms_slam_odom_estimation_node" name="mms_slam_odom_estimation_node" output="screen"/>
+    <node pkg="mms_slam" type="mms_slam_laser_mapping_node" name="mms_slam_laser_mapping_node" output="log"/>
+
+    <node pkg="tf" type="static_transform_publisher" name="world2map_tf" args="0 0 0 0 0 0 world map 10" />
+    <!-- Ensure camera_color_optical_frame exists in TF -->
+    <node pkg="tf" type="static_transform_publisher" name="baselink2camera_color_optical_tf" args="0 0 0 0 0 0 base_link camera_color_optical_frame 10" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mms_slam)/rviz/mms_slam_mapping.rviz" />
+</launch>

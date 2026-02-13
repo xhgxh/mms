@@ -1,0 +1,29 @@
+# LiDAR input type.
+# true: subscribe livox_ros_driver/CustomMsg
+# false: subscribe sensor_msgs/PointCloud2
+use_livox_custom_msg: true
+pointcloud_topic: "/livox/lidar"
+use_motion_compensation: false
+projection_window_radius: 1
+odom_topic: "/odom"
+lidar_time_offset: 0.0
+img_time_offset: 0.0
+exposure_time_init: 0.0
+use_depth_buffer_projection: true
+depth_consistency_margin: 0.05
+
+# LiDAR-to-camera extrinsic transform, row-major 4x4 matrix.
+lidar_to_camera_matrix: [
+  0.999980,  0.006024, -0.001928,  0.001000,
+ -0.005976,  0.999694,  0.024006,  0.014000,
+  0.002072, -0.023994,  0.999710, -0.007000,
+  0.000000,  0.000000,  0.000000,  1.000000
+]
+
+# SLAM and mapping parameters.
+scan_period: 0.1
+vertical_angle: 2.0
+scan_line: 64
+max_dis: 60.0
+min_dis: 0.5
+map_resolution: 0.03

@@ -1,0 +1,26 @@
+# Camera and camera-lidar fusion related parameters.
+camera_topic: "/camera/color/image_raw"
+mask_topic: "/solo_node/mask"
+camera_info_topic: "/camera/color/camera_info"
+output_frame_id: "camera_depth_optical_frame"
+
+# Timestamp alignment tolerance between mask image and lidar point cloud.
+sync_tolerance: 0.01
+use_tf_projection: true
+fallback_matrix_target_is_optical: true
+auto_select_fallback_transform: true
+
+# Set to 0 to disable strict size checking in image2pc node.
+image_width: 1280
+image_height: 720
+
+# Camera intrinsics for 3D->2D projection.
+camera_fx: 910.0393676757812
+camera_fy: 910.4710693359375
+camera_cx: 647.5104370117188
+camera_cy: 363.0339050292969
+
+# SOLO node parameters (loaded into solo_node private namespace by launch).
+input: "/camera/color/image_raw"
+visualization: true
+skip_frame: 3

@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="camera_config" default="$(find mms_slam)/config/camera_config.yaml" />
+    <rosparam command="load" file="$(arg camera_config)" />
+    <rosparam command="load" file="$(arg camera_config)" ns="solo_node" />
+
     <!-- solo -->
     <node name="solo_node" pkg="mms_slam" type="solo_node.py" output="screen">
-        <remap from="~input" to="/camera/color/image_raw" />
-        <param name="~visualization" value="true" />
-        <!-- skip how many frames per processing -->
-        <param name="~skip_frame" value="0" /> 
         <param name="~root_path" value="$(find mms_slam)/" /> 
     </node> 
 

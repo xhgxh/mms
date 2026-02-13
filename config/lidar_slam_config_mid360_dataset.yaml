@@ -1,0 +1,35 @@
+# Public dataset Mid360 config (LiDAR + SLAM related).
+
+# LiDAR input type.
+use_livox_custom_msg: true
+pointcloud_topic: "/livox/mid360/lidar"
+use_motion_compensation: true
+projection_window_radius: 2
+odom_topic: "/odom"
+lidar_time_offset: 0.0
+img_time_offset: 0.0
+exposure_time_init: 0.0
+use_depth_buffer_projection: true
+depth_consistency_margin: 0.08
+
+# LiDAR(livox_frame) -> Camera(camera_color_optical_frame) transform, row-major 4x4.
+# Computed as inverse of provided camera -> mid360:
+# R = [0.0722207, 0.5210047, 0.8504930;
+#      -0.997387, -0.0020542, 0.0722207;
+#       0.0394820, -0.8526402, 0.5210050]
+# t = [0.07433266794297944, -0.038064684622738675, -0.43920868647350303]
+lidar_to_camera_matrix: [
+  0.0722207, -0.997387, -0.0020542, -0.0442358,
+  0.521005,   0.039482, -0.85264,   -0.411712,
+  0.850493,   0.060508,  0.522494,   0.168568,
+  0.0,        0.0,       0.0,        1.0
+]
+
+
+# SLAM parameters.
+scan_period: 0.1
+vertical_angle: 2.0
+scan_line: 64
+max_dis: 60.0
+min_dis: 0.5
+map_resolution: 0.03

@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 
 # Local path to trained weights file
-ROOT_PATH = os.path.join(os.environ['HOME'], 'catkin_ws/src/mms_slam/')
+ROOT_PATH = os.path.join(os.environ['HOME'], 'dy_slam/src/mms_slam/')
 MODEL_PATH = 'config/trained_model.pth'
 CONFIG_PATH = 'config/training_param.py'
 ROS_HOME = os.environ.get('ROS_HOME', os.path.join(os.environ['HOME'], ROOT_PATH))
@@ -38,7 +38,7 @@ class SOLOv2Node(object):
         config_file = os.path.join(root_path, config_path)
 
         # Get input RGB topic.
-        self._rgb_input_topic = rospy.get_param('~input', RGB_TOPIC)
+        self._rgb_input_topic = rospy.get_param('~input', rospy.get_param('/camera_topic', "/camera/color/image_raw"))
 
         self._visualization = rospy.get_param('~visualization', True)
 
@@ -126,11 +126,11 @@ class SOLOv2Node(object):
         #print('Time needed for segmentation: %.3f s' % msg.header)
         result_msg.encoding = "mono8"
         if not result or result == [None]:
-            result_msg.height = 720
-            result_msg.width = 1280
+            result_msg.height = msg.height
+            result_msg.width = msg.width
             result_msg.step = result_msg.width
             result_msg.is_bigendian = False
-            mask_sum = np.zeros(shape=(1280,720),dtype=np.uint8)
+            mask_sum = np.zeros(shape=(result_msg.height, result_msg.width),dtype=np.uint8)
             result_msg.data = mask_sum.tobytes()
             return result_msg
         cur_result = result[0]

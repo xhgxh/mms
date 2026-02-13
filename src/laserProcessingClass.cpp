@@ -49,11 +49,11 @@ void LaserProcessingClass::featureExtraction(const pcl::PointCloud<pcl::PointXYZ
 
         if(fabs(angle - last_angle)>0.05){
             
-            if(count>30){
+            if(count>10){
                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_temp(new pcl::PointCloud<pcl::PointXYZRGB>());
                 for(int k=0;k<count;k++){
-                    if(pc_in->points[i-count+k+1].z<1.55)
-                        pc_temp->push_back(pc_in->points[i-count+k+1]);
+                    // 测试：不限制高度，避免 Mid360 坐标系差异导致过滤为空
+                    pc_temp->push_back(pc_in->points[i-count+k+1]);
                     //pc_in->points[i-count+k+1].intensity=1.0;
                 }
                 if(pc_temp->points.size()>0)
@@ -63,6 +63,16 @@ void LaserProcessingClass::featureExtraction(const pcl::PointCloud<pcl::PointXYZ
             last_angle = angle;
         }
 
+    }
+
+    if (laserCloudScans.empty() && !pc_in->points.empty()) {
+        // 测试：Mid360 非重复扫描，无法按角度分段时，退化为单扫描
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_temp(new pcl::PointCloud<pcl::PointXYZRGB>());
+        pc_temp->reserve(pc_in->points.size());
+        for (const auto &pt : pc_in->points) {
+            pc_temp->push_back(pt);
+        }
+        laserCloudScans.push_back(pc_temp);
     }
 
     ROS_WARN_ONCE("total points array %d", laserCloudScans.size());

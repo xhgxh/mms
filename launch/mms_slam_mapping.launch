@@ -1,10 +1,12 @@
 <?xml version="1.0"?>
 <launch>
+    <node name="image_transport_1" pkg="image_transport" type="republish" args="compressed in:=/camera/color/image_raw raw out:=/camera/color/image_raw" />
 
 <!-- rosbag --> 
-    <node name="bag" pkg="rosbag" type="play" args="--clock -r 0.4 -d 5 $(env HOME)/Downloads/dynamic_warehouse.bag" />
-    <param name="/use_sim_time" value="true" />  -->
-
+    <node name="bag" pkg="rosbag" type="play" args="--clock -r 0.4 -d 5 /home/sevnce/dataset/Dynamic01.bag" />
+    <param name="/use_sim_time" value="true" /> 
+<!-- /home/sevnce/dataset/Dynamic01.bag -->
+<!-- /home/sevnce/dataset/dynamic_warehouse.bag -->
 <!--  
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
         <arg name="color_width" value="1280" />
@@ -18,7 +20,7 @@
         <remap from="~input" to="/camera/color/image_raw" />
         <param name="~visualization" value="true" />
         <!-- skip how many frames per processing -->
-        <param name="~skip_frame" value="3" /> 
+        <param name="~skip_frame" value="0" /> 
         <param name="~root_path" value="$(find mms_slam)/" /> 
     </node> 
 
@@ -36,8 +38,10 @@
     <node pkg="mms_slam" type="mms_slam_odom_estimation_node" name="mms_slam_odom_estimation_node" output="log"/>
     <node pkg="mms_slam" type="mms_slam_laser_mapping_node" name="mms_slam_laser_mapping_node" output="log"/>
 
-    <node pkg="tf" type="static_transform_publisher" name="word2map_tf"  args="0.69 0 0.0 0 0 0 /world /map 10" />
-    <node pkg="tf" type="static_transform_publisher" name="baselink2cam_tf"  args="0 0 0 0 0 0 /base_link /camera_link 10" />
+    <node pkg="tf" type="static_transform_publisher" name="word2map_tf"  args="0.69 0 0.0 0 0 0 world map 10" />
+    <node pkg="tf" type="static_transform_publisher" name="baselink2cam_tf"  args="0 0 0 0 0 0 base_link camera_link 10" />
+    <!-- Ensure camera_color_optical_frame exists in TF -->
+    <node pkg="tf" type="static_transform_publisher" name="baselink2camera_color_optical_tf"  args="0 0 0 0 0 0 base_link camera_color_optical_frame 10" />
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mms_slam)/rviz/mms_slam_mapping.rviz" />
 
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_server_floam_ssl" ns="mms_slam" >

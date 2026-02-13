@@ -1,5 +1,13 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="camera_config" default="$(find mms_slam)/config/camera_config.yaml" />
+    <arg name="lidar_slam_config" default="$(find mms_slam)/config/lidar_slam_config.yaml" />
+
+    <rosparam command="load" file="$(arg camera_config)" />
+    <rosparam command="load" file="$(arg lidar_slam_config)" />
+    <rosparam command="load" file="$(arg camera_config)" ns="solo_node" />
+    <rosparam command="load" file="$(arg camera_config)" ns="mms_slam_image2pc_node" />
+    <rosparam command="load" file="$(arg lidar_slam_config)" ns="mms_slam_image2pc_node" />
 
     <node name="bag1" pkg="rosbag" type="play" args="--clock -r 0.5 $(env HOME)/Downloads/dynamic_warehouse.bag" />
 
@@ -16,22 +24,11 @@
 
     <!-- solo -->
     <node pkg="mms_slam" name="solo_node" type="solo_node.py" output="screen">
-        <remap from="~input" to="/camera/color/image_raw" />
-        <param name="~visualization" value="true" />
-        <!-- skip how many frames per processing -->
-        <param name="~skip_frame" value="3" /> 
         <param name="~root_path" value="$(find mms_slam)/" /> 
     </node> 
 
     <node pkg="mms_slam" name="mms_slam_image2pc_node" type="mms_slam_image2pc_node" output="screen">
     </node> 
-
-    <param name="scan_period" value="0.1" />
-
-    <param name="vertical_angle" type="double" value="2.0" />
-    <param name="max_dis" type="double" value="9.0" />
-    <param name="map_resolution" type="double" value="0.03" />
-    <param name="min_dis" type="double" value="0.1" />
     
     <node pkg="mms_slam" type="mms_slam_laser_processing_node" name="mms_slam_laser_processing_node" output="log"/>
     <node pkg="mms_slam" type="mms_slam_odom_estimation_node" name="mms_slam_odom_estimation_node" output="screen"/>

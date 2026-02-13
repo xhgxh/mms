@@ -13,6 +13,7 @@
 //ros lib
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <livox_ros_driver/CustomMsg.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
@@ -49,6 +50,8 @@ std::mutex mutex_lock;
 std::queue<sensor_msgs::ImageConstPtr> colorImageBuf;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudBuf;
 double map_resolution = 0.4;
+// std::string output_frame_id = "camera_depth_optical_frame";
+std::string output_frame_id = "camera_color_optical_frame";
 
 ros::Publisher pubStaticPointCloud;
 ros::Publisher pubDynamicPointCloud;
@@ -66,6 +69,36 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
     pointCloudBuf.push(laserCloudMsg);
     mutex_lock.unlock();
     //ROS_INFO("pc in");
+}
+
+void livoxHandler(const livox_ros_driver::CustomMsg::ConstPtr &livoxMsg)
+{
+    pcl::PointCloud<pcl::PointXYZRGB> cloud;
+    cloud.reserve(livoxMsg->points.size());
+    for (const auto &pt : livoxMsg->points) {
+        if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z)) {
+            continue;
+        }
+        pcl::PointXYZRGB p;
+        p.x = pt.x;
+        p.y = pt.y;
+        p.z = pt.z;
+        p.r = 255;
+        p.g = 255;
+        p.b = 255;
+        cloud.push_back(p);
+    }
+
+    sensor_msgs::PointCloud2Ptr out(new sensor_msgs::PointCloud2());
+    pcl::toROSMsg(cloud, *out);
+    out->header = livoxMsg->header;
+    if (out->header.stamp.isZero() && livoxMsg->timebase > 0) {
+        out->header.stamp.fromNSec(livoxMsg->timebase);
+    }
+
+    mutex_lock.lock();
+    pointCloudBuf.push(out);
+    mutex_lock.unlock();
 }
 
 void draBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& pc_in, double min_x, double min_y, double min_z, double max_x, double max_y, double max_z, int r, int g, int b){
@@ -229,7 +262,7 @@ void image2pc(){
             start = std::chrono::system_clock::now();
             total_frame++;
 
-            //ROS_INFO("total frame %d",total_frame);
+            ROS_INFO("total frame %d",total_frame);
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr static_pc(new pcl::PointCloud<pcl::PointXYZRGB>());
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr dynamic_pc(new pcl::PointCloud<pcl::PointXYZRGB>());
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr static_obj_pc(new pcl::PointCloud<pcl::PointXYZRGB>());
@@ -237,9 +270,29 @@ void image2pc(){
             //fuse color image and depth image
 
             Eigen::Isometry3d pose_trans = Eigen::Isometry3d::Identity();
-            pose_trans.translation() = Eigen::Vector3d(0.001, 0.014, -0.007);
-            Eigen::Quaterniond quaternion_temp(1.00,-0.012, -0.001, -0.003); 
-            pose_trans.linear() = quaternion_temp.toRotationMatrix();;
+            // pose_trans.translation() = Eigen::Vector3d(0.001, 0.014, -0.007);
+            // Eigen::Quaterniond quaternion_temp(1.00,-0.012, -0.001, -0.003); 
+
+
+            // --- 雷达到相机的外参 (Mid360 -> Camera) ---
+            // 平移向量 [x, y, z]
+            // pose_trans.translation() = Eigen::Vector3d(-0.0442358, -0.411712, 0.168568);
+            pose_trans.translation() = Eigen::Vector3d(-0.0442358, -0.411712, 0.168568);
+
+            // 旋转矩阵（row-major）
+            Eigen::Matrix3d Rcl;
+            Rcl << 0.0722207, -0.997387, -0.0020542,
+                   0.521005,   0.039482, -0.85264,
+                   0.850493,   0.060508,  0.522494;
+            pose_trans.linear() = Rcl;
+            // Mid360->camera_link 转到 camera_optical（x right, y down, z forward）
+            // x_opt = -y_cam, y_opt = -z_cam, z_opt = x_cam
+            Eigen::Matrix3d R_opt;
+            R_opt << 0.0, -1.0, 0.0,
+                     0.0,  0.0, -1.0,
+                     1.0,  0.0, 0.0;
+            // pose_trans.linear() = R_opt * pose_trans.linear();
+            pose_trans.translation() = R_opt * pose_trans.translation();
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_pc(new pcl::PointCloud<pcl::PointXYZRGB>());
             pcl::transformPointCloud(*pointcloud_in, *transformed_pc, pose_trans.cast<float>());
             //image dilation
@@ -253,14 +306,15 @@ void image2pc(){
             cv::Mat dilated_image;
 
             //ROS_INFO("dimension %d * %d",color_image_ptr->image.cols,color_image_ptr->image.rows);
-            if(color_image_ptr->image.cols!=1280 || color_image_ptr->image.rows!=720){
+            if(color_image_ptr->image.cols!=640 || color_image_ptr->image.rows!=480){
+            // if(color_image_ptr->image.cols!=1280 || color_image_ptr->image.rows!=720){
                 ROS_WARN("input mask dimension error,%d,%d",color_image_ptr->image.rows,color_image_ptr->image.cols);
                 continue;
             }
             cv::dilate(color_image_ptr->image, dilated_image, element,cv::Point(-1,-1), 2, cv::BORDER_REPLICATE);
             // count_temp=0;
-            for(int i=0;i<1280;i++){
-                for(int j=0;j<720;j++){
+            for(int i=0;i<dilated_image.cols;i++){
+                for(int j=0;j<dilated_image.rows;j++){
                     if (dilated_image.at<unsigned char>(j,i)!=0)
                         dilated_image.at<unsigned char>(j,i) *= 100;
                 }
@@ -271,7 +325,17 @@ void image2pc(){
             std::vector<int> static_pc_id;
             std::vector<int> dynamic_pc_id;
             bool is_dynamic_final[pointcloud_in->points.size()];
+            size_t aligned_points = 0;
+            size_t invalid_depth_count = 0;
+            size_t out_of_bound_count = 0;
+            size_t processed_points = 0;
+            // Debug: image size, z range, and a few sample projections (throttled)
+            float z_min = std::numeric_limits<float>::infinity();
+            float z_max = -std::numeric_limits<float>::infinity();
+            int sample_printed = 0;
+            std::ostringstream proj_samples;
             for(int i=0;i<pointcloud_in->points.size();i++){
+                processed_points++;
                 is_dynamic_final[i]=false;
             	pcl::PointXYZRGB point_temp;
             	point_temp.x = pointcloud_in->points[i].x;
@@ -281,17 +345,44 @@ void image2pc(){
             	point_temp.g = pointcloud_in->points[i].g;
             	point_temp.b = pointcloud_in->points[i].b;
             	
-                int pixel_x = 910.0393676757812 * transformed_pc->points[i].x/transformed_pc->points[i].z + 647.5104370117188;
-                int pixel_y = 910.4710693359375 * transformed_pc->points[i].y/transformed_pc->points[i].z + 363.0339050292969;
+                const float z = transformed_pc->points[i].z;
+                z_min = std::min(z_min, z);
+                z_max = std::max(z_max, z);
+                if (std::fabs(z) < 1e-6f || z < 0.0f) {
+                    invalid_depth_count++;
+                    static_pc->push_back(point_temp);
+                    static_pc_id.push_back(i);
+                    continue;
+                }
+
+                // mid360
+                int pixel_x = 607.79772949218 * transformed_pc->points[i].x / z + 328.79772949218;
+                int pixel_y = 607.83526613281 * transformed_pc->points[i].y / z + 245.53321838378;
+                if (sample_printed < 5) {
+                    proj_samples << " i=" << i
+                                 << " p=(" << transformed_pc->points[i].x << ","
+                                 << transformed_pc->points[i].y << "," << z << ")"
+                                 << " uv=(" << pixel_x << "," << pixel_y << ");";
+                    sample_printed++;
+                }
+
+                // L515
+                // int pixel_x = 910.0393676757812 * transformed_pc->points[i].x/transformed_pc->points[i].z + 647.5104370117188;
+                // int pixel_y = 910.4710693359375 * transformed_pc->points[i].y/transformed_pc->points[i].z + 363.0339050292969;
                 //ROS_INFO("width = %d, height=%d",color_image_ptr->image.cols,color_image_ptr->image.rows);
                 if(pixel_x< 0 || pixel_x>=color_image_ptr->image.cols){
-                    ROS_WARN("unaligned points");
+                    out_of_bound_count++;
+                    static_pc->push_back(point_temp);
+                    static_pc_id.push_back(i);
                     continue;
                 }
                 if(pixel_y< 0 || pixel_y>=color_image_ptr->image.rows){
-                    ROS_WARN("unaligned points");
+                    out_of_bound_count++;
+                    static_pc->push_back(point_temp);
+                    static_pc_id.push_back(i);
                     continue;
                 }
+                aligned_points++;
                 
                     // static_pc->push_back(point_temp);
                     // static_pc_id.push_back(i);
@@ -311,6 +402,29 @@ void image2pc(){
                 }
 
             }
+
+            ROS_WARN_THROTTLE(1.0,
+                              "debug img=%dx%d z_min=%.3f z_max=%.3f processed=%zu total=%zu samples:%s",
+                              color_image_ptr->image.cols,
+                              color_image_ptr->image.rows,
+                              std::isfinite(z_min) ? z_min : 0.0f,
+                              std::isfinite(z_max) ? z_max : 0.0f,
+                              processed_points,
+                              pointcloud_in->points.size(),
+                              proj_samples.str().c_str());
+
+            if (aligned_points > pointcloud_in->points.size()) {
+                ROS_WARN_THROTTLE(1.0,
+                                  "alignment stats anomaly: aligned=%zu > total=%zu",
+                                  aligned_points, pointcloud_in->points.size());
+            }
+            ROS_WARN_THROTTLE(1.0,
+                              "static_pc_size=%zu,alignment stats total=%zu aligned=%zu invalid_z=%zu out_of_bound=%zu",
+                              static_pc->points.size(),
+                              pointcloud_in->points.size(),
+                              aligned_points,
+                              invalid_depth_count,
+                              out_of_bound_count);
 
             if(pointcloud_in->points.size() - dynamic_pc->points.size()<100){
                 ROS_WARN("not enough static points%d/%d", dynamic_pc->points.size(),pointcloud_in->points.size());
@@ -605,18 +719,18 @@ void image2pc(){
             //pcl::toROSMsg(*static_pc, static_pc_msg);
             pcl::toROSMsg(*static_pc, static_pc_msg);
             static_pc_msg.header.stamp = pointcloud_time;
-            static_pc_msg.header.frame_id = "/camera_depth_optical_frame";
+            static_pc_msg.header.frame_id = output_frame_id;
             pubStaticPointCloud.publish(static_pc_msg);
             
             //dynamic pc
             sensor_msgs::PointCloud2 dynamic_pc_msg;
             pcl::toROSMsg(*dynamic_pc + *bounding_box_pc, dynamic_pc_msg);
             dynamic_pc_msg.header.stamp = pointcloud_time;
-            dynamic_pc_msg.header.frame_id = "/camera_depth_optical_frame";
+            dynamic_pc_msg.header.frame_id = output_frame_id;
             pubDynamicPointCloud.publish(dynamic_pc_msg);
 
             cv_bridge::CvImage out_msg;
-            out_msg.header.frame_id  = "/camera_depth_optical_frame"; 
+            out_msg.header.frame_id  = output_frame_id; 
             out_msg.header.stamp  = pointcloud_time; 
             out_msg.encoding = sensor_msgs::image_encodings::MONO8; 
             out_msg.image    = dilated_image; 
@@ -637,8 +751,16 @@ int main(int argc, char **argv)
     //Eigen::Matrix<double,double>
 
     nh.getParam("/map_resolution", map_resolution);
+    nh.param<std::string>("output_frame_id", output_frame_id, output_frame_id);
+    if (!output_frame_id.empty() && output_frame_id.front() == '/') {
+        output_frame_id.erase(output_frame_id.begin());
+    }
+    if (output_frame_id.empty()) {
+        output_frame_id = "camera_depth_optical_frame";
+    }
     map_resolution = 0.01;
-    ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 100, velodyneHandler);
+    // ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 100, velodyneHandler);
+    ros::Subscriber subLivoxCloud = nh.subscribe<livox_ros_driver::CustomMsg>("/livox/mid360/lidar", 100, livoxHandler);
     image_transport::Subscriber colorImageSub = it.subscribe("/solo_node/mask", 100, ColorImageHandler);
 
     pubStaticPointCloud = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points_static", 100);
